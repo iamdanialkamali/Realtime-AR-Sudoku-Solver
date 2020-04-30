@@ -1,33 +1,12 @@
 import traceback
-#########3
-from keras.optimizers import Adam
-from keras import backend as K
-import numpy as np
-import matplotlib.pyplot as plt
-
-#####
-import cv2
-import imutils
-import numpy as np
-import matplotlib.pyplot as plt
-import urllib.request
-import cv2
-import numpy as np
 import time
-
-import arabic_reshaper
-
-from bidi.algorithm import get_display
-
 from PIL import ImageFont
 from PIL import Image
 from PIL import ImageDraw
 import requests
 import numpy as np
 import cv2
-
 from numpy import unravel_index
-
 from keras.models import load_model
 
 model = load_model('m_kheyli_hast.h5')
@@ -60,16 +39,14 @@ en2fa = {
     9: '۹'
 }
 
-fontFile = "b_nazanin.ttf"
+fontFile = "./fonts/b_nazanin.ttf"
 font = ImageFont.truetype(fontFile, 60)
 
 templates = []
 for i in range(1, 10):
-    templates.append(cv2.imread('./{}.png'.format(i), 0))
+    templates.append(cv2.imread('./templates/{}.png'.format(i), 0))
 video_capture = cv2.VideoCapture(0)
 
-
-###############################################################
 
 def findNextCellToFill(grid, i, j):
     for x in range(i, 9):
@@ -115,8 +92,6 @@ def solveSudoku(grid, i=0, j=0):
     return False
 
 
-######################################################3
-
 def process(img):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
     greyscale = img if len(img.shape) == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -161,6 +136,7 @@ def get_block_num_TM(block):
         if res[indx] > 0.9:
             return i
         i += 1
+        cv2.imwrite("images/chunked.jpg", template)
     if max(values) < 0.6:
         return 0
 
@@ -205,9 +181,13 @@ def get_webcam():
     return input_img
 
 
-
-
 def prespective_transform(points, input_img):
+    """
+
+    :param points: 4 corner of sudoku
+    :param input_img: image
+    :return: sudoku matrix croped and transformed
+    """
     pts = np.array([[0, 0], [maxHeight - 1, 0], [0, maxWidth - 1], [maxHeight - 1, maxWidth - 1]], dtype="float32")
     M = cv2.getPerspectiveTransform(points, pts)
     dst = cv2.warpPerspective(input_img, M, (maxHeight, maxWidth))
@@ -215,6 +195,11 @@ def prespective_transform(points, input_img):
 
 
 def matrix_not_in_history(matrix):
+    """
+
+    :param matrix: sudoku matrix 9*9
+    :return:
+    """
     if len(history) == 0:
         return True
     x = np.abs(np.array([np.sum(matrix - past) for past in history]))
@@ -232,17 +217,22 @@ def get_matrix_index(matrix):
 while True:
     try:
         # input_img = get_ip_camera()
-        input_img = get_webcam()
+        # input_img = get_webcam()
+        input_img = cv2.imread("images/sudoko.jpg")
+
+
         time1 = time.time()
-        preproccessed = process(input_img)
-        points = get_corners(preproccessed)
+        preprocessed = process(input_img)
+        cv2.imwrite("images/preprocssed.jpg", preprocessed)
+        points = get_corners(preprocessed)
         tl, tr, bl, br = points
 
         dst = prespective_transform(points, input_img)
-
         gray_dst = cv2.cvtColor(dst, cv2.COLOR_BGR2GRAY)
 
-        if np.abs(np.sum(points - wraped_history)) > 400:
+        cv2.imwrite("images/gray_dst.jpg", gray_dst)
+
+        if np.abs(np.sum(points - wraped_history)) > 450:
             wraped_history = points
             matrix = np.zeros((9, 9))
             unsolved_blocks = []
@@ -252,6 +242,7 @@ while True:
                 for j in range(9):
                     num_img = gray_dst[int(i * block_y) + block_dy:int((i + 1) * block_y) - block_dy,
                               int(j * block_x) + block_dx:int((j + 1) * block_x) - block_dx]
+
                     num = get_block_num_TM(num_img)
                     matrix[i][j] = num
                     if num == 0:
@@ -259,11 +250,9 @@ while True:
 
         if np.sum(matrix) > 100:
             if matrix_not_in_history(matrix):
-
                 solving_start_time = time.time()
                 solved_matrix = np.copy(matrix)
                 solveSudoku(solved_matrix)
-
                 img_pil = Image.fromarray(dst)
                 draw = ImageDraw.Draw(img_pil)
                 for block in unsolved_blocks:
@@ -273,7 +262,11 @@ while True:
                     b, g, r, a = 0, 0, 0, 10
                     draw.text((y, x), en2fa[int(num)], font=font, fill=(b, g, r, a))
                 sudoku_results.append(img_pil)
+                cv2.imwrite("images/solved.jpg", np.array(img_pil))
+
                 final = inverse_perspective(np.array(img_pil), input_img, np.array((tl, tr, bl, br)))
+                cv2.imwrite("images/final.jpg", final)
+
                 answers.append(solved_matrix[:])
                 cv2.imshow('Video', np.array(final))
                 history.append(matrix[:])
@@ -286,6 +279,6 @@ while True:
         else:
             print("No Matrix")
             cv2.imshow('Video', input_img)
-
+        cv2.waitKey(1)
     except:
         print(traceback.format_exc())
