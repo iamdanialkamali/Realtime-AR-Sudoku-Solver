@@ -13,16 +13,16 @@ In order to getting images ip_camera app and webcam images are used
 ### Step 1
 ``` python
 def process(img):
-kernel = cv2.getStructuringElement(cv2.MORPH_RECT, ( 2 , 2 ))
-greyscale = img if len(img.shape) == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2G
-RAY)
-denoise = cv2.GaussianBlur(greyscale, ( 9 , 9 ), 0 )
-thresh = cv2.adaptiveThreshold(denoise, 255 , cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-cv2.THRESH_BINARY, 11 , 2 )
-inverted = cv2.bitwise_not(thresh, 0 )
-morph = cv2.morphologyEx(inverted, cv2.MORPH_OPEN, kernel)
-dilated = cv2.dilate(morph, kernel, iterations= 1 )
-return dilated
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, ( 2 , 2 ))
+    greyscale = img if len(img.shape) == 2 else cv2.cvtColor(img, cv2.COLOR_BGR2G
+    RAY)
+    denoise = cv2.GaussianBlur(greyscale, ( 9 , 9 ), 0 )
+    thresh = cv2.adaptiveThreshold(denoise, 255 , cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+    cv2.THRESH_BINARY, 11 , 2 )
+    inverted = cv2.bitwise_not(thresh, 0 )
+    morph = cv2.morphologyEx(inverted, cv2.MORPH_OPEN, kernel)
+    dilated = cv2.dilate(morph, kernel, iterations= 1 )
+    return dilated
 ```
 this function used to find make binray image in order to find the four corner of the sudoku table
 ![Output_Image](./images/preprocssed.jpg)
@@ -61,6 +61,37 @@ The other method that is used for digit detection was Template-Matching which by
 ### Step 4
 ![Output_Image](./images/solved.jpg)
 ### Step 5
+
+``` python
+def inverse_perspective(img, dst_img, pts):
+    dst_img = dst_img.copy()
+    pts_source = np.array([[0, 0], [img.shape[1] - 1, 0], [0, img.shape[0] - 1],
+                           [img.shape[1] - 1, img.shape[0] - 1]], dtype='float32')
+
+    cv2.fillConvexPoly(dst_img, np.ceil(np.array([pts[0], pts[2], pts[3], pts[1]])).astype(int), 0, 16)
+    M = cv2.getPerspectiveTransform(pts_source, pts)
+    dst = cv2.warpPerspective(img, M, (dst_img.shape[1], dst_img.shape[0]))
+    return dst_img + dst
+```
+In this section the solved matrix has been putted in the original place.
+in order to do that the points has been covered by black convex to avoid noise.
+\
 ![Output_Image](./images/final.jpg)
 
-chr
+### Avoidance of noise
+###  1.avoiding solving incomplete sudoku  
+```
+if np.sum(matrix)> 100 :
+```
+this statement check that if there is a complete sudoku matrix in the picture or not 
+the number has been suggested by experiments  
+###  2.avoiding solving duplicate sudoku  
+``` python
+if matrix_not_in_history(matrix):
+```
+this statement check that if we have seen the matrix before, so if we have seen it before it will use the history to solve it
+###  2.avoiding computing duplicate sudoku  
+``` python
+if np.abs(np.sum(points - wraped_history)) > 450:
+```
+this statement will prevent solving a same matrix when it has been moved just a little in this case we use the old solution and use it in the new coordinates   
